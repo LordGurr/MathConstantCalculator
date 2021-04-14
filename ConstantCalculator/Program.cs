@@ -82,7 +82,7 @@ namespace ConstantCalculator
             return q;
         }
 
-        private static string Champernowne(int iterations)
+        private static string Champernowne(int iterations)// Commit this
         {
             string temp = "0.";
             for (int i = 1; i < iterations; i++)
