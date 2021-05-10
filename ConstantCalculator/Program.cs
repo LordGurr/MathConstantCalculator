@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -39,6 +40,11 @@ namespace ConstantCalculator
 
             string chamb = Champernowne(5000);
             Console.WriteLine(chamb);
+            List<int> fibonacciInts = (Fibonacci(20));
+            for (int i = 0; i < fibonacciInts.Count; i++)
+            {
+                Console.WriteLine(fibonacciInts[i]);
+            }
             for (int i = 0; i < 20; i++)
             {
                 e += fact((decimal)1 / ((decimal)i + (decimal)1));
@@ -88,6 +94,54 @@ namespace ConstantCalculator
 
             return (decimal)result;
         }
+
+        private static List<int> Fibonacci(int iterations)
+        {
+            List<int> numbers = new List<int>();
+            for (int i = 0; i < 2 && i < iterations; i++)
+            {
+                numbers.Add(1);
+            }
+            for (int i = 2; i < iterations; i++)
+            {
+                numbers.Add(NextFibonnaci(numbers[i - 1], numbers[i - 2]));
+            }
+            return numbers;
+        }
+
+        private static int NextFibonnaci(int previous, int previousPrev)
+        {
+            return previous + previousPrev;
+        }
+
+        private static double factorialDouble(double d)
+        {
+            if (d == 0.0)
+            {
+                return 1.0;
+            }
+
+            double abs = Math.Abs(d);
+            double decimalen = abs - Math.Floor(abs);
+            double result = 1.0;
+
+            for (double i = Math.Floor(abs); i > decimalen; --i)
+            {
+                result *= (i + decimalen);
+            }
+            if (d < 0.0)
+            {
+                result = -result;
+            }
+
+            return result;
+        }
+
+        //public static double generalizedFactorial(double d)
+        //{
+        //    // Gamma(n) = (n-1)! for integer n
+        //    return Gamma.gamma(d + 1);
+        //}
 
         private decimal CalcPi(int iterations)
         {
@@ -166,7 +220,7 @@ namespace ConstantCalculator
                     }
                     //}
                 }
-                else if (!containsNumber && c > '0' && c < '9')
+                else if (!containsNumber && c >= '0' && c <= '9')
                 {
                     containsNumber = true;
                 }
@@ -179,10 +233,20 @@ namespace ConstantCalculator
         }
 
         private const double champ = 0.123456789101112;
+        private const double conway = 1.303577269034296;
+        private const double phi = 1.618033988749894;
+        public static float Rad2Deg = 360 / ((float)Math.PI * 2);
+        public static float Deg2Rad = ((float)Math.PI * 2) / 360;
 
         private static string[] _operators = { "-", "+", "/", "*", "^", "%" };
 
-        private static string[] mathConst = { "e", "pi", "tau", "champ", "champerowne" };
+        private static string[] _singleOperators = { "!" };
+
+        private static string[] mathConst = { "e", "pi", "tau", "champerowne", "champ", "conway", "phi", "rad2deg", "deg2rad" };
+
+        private static double[] actMathConst = { Math.E, Math.PI, Math.PI * 2, champ, champ, conway, phi, Rad2Deg, Deg2Rad };
+
+        private static string[] preParenthesis = { "sin", "cos", "tan", "abs", "sqr" };
 
         private static Func<double, double, double>[] _operations = {
         (a1, a2) => a1 - a2,
@@ -191,7 +255,21 @@ namespace ConstantCalculator
         (a1, a2) => a1 * a2,
         (a1, a2) => Math.Pow(a1, a2),
         (a1, a2) => a1 % a2,
+        //(a1, a2) => factorialDouble(a1),
     };
+
+        private static Func<double, double>[] preParenthesisOperation = {
+        (a1) => Math.Sin(a1*Deg2Rad),
+        (a1) => Math.Cos(a1*Deg2Rad),
+        (a1) => Math.Tan(a1*Deg2Rad),
+        (a1) => Math.Abs(a1),
+        (a1) => Math.Sqrt(a1),
+        };
+
+        private static Func<double, double>[] _singleOperations = {
+        (a1) => factorialDouble(a1),
+        //(a1, a2) => factorialDouble(a1),
+        };
 
         public static double Eval(string expression)
         {
@@ -205,6 +283,19 @@ namespace ConstantCalculator
             while (tokenIndex < tokens.Count)
             {
                 string token = tokens[tokenIndex];
+                bool usedPreParen = false;
+                if (preParenthesis.Any(a => a == token))
+                {
+                    if (tokens[tokenIndex + 1] != "(")
+                    {
+                        throw new ArgumentException("A pre parenthesis function has to be followed by a parenthesis");
+                    }
+                    int index = preParenthesis.ToList().FindIndex(a => a == token);
+                    tokenIndex++;
+                    string subExpr = getSubExpression(tokens, ref tokenIndex);
+                    operandStack.Push(preParenthesisOperation[Array.IndexOf(preParenthesis, token)](Eval(subExpr)));
+                    continue;
+                }
                 if (token == "(")
                 {
                     string subExpr = getSubExpression(tokens, ref tokenIndex);
@@ -216,14 +307,28 @@ namespace ConstantCalculator
                     throw new ArgumentException("Mis-matched parentheses in expression");
                 }
                 //If this is an operator
-                if (Array.IndexOf(_operators, token) >= 0)
+                if (Array.IndexOf(_operators, token) >= 0 || Array.IndexOf(_singleOperators, token) >= 0)
                 {
                     while (operatorStack.Count > 0 && Array.IndexOf(_operators, token) < Array.IndexOf(_operators, operatorStack.Peek()))
                     {
                         string op = operatorStack.Pop();
                         double arg2 = operandStack.Pop();
-                        double arg1 = operandStack.Pop();
-                        operandStack.Push(_operations[Array.IndexOf(_operators, op)](arg1, arg2));
+                        if (_singleOperators.Any(a => a == op))
+                        {
+                            operandStack.Push(_singleOperations[Array.IndexOf(_singleOperators, op)](arg2));
+                        }
+                        else
+                        {
+                            if (operandStack.Count > 0 || op != "-")
+                            {
+                                double arg1 = operandStack.Pop();
+                                operandStack.Push(_operations[Array.IndexOf(_operators, op)](arg1, arg2));
+                            }
+                            else
+                            {
+                                operandStack.Push(-arg2);
+                            }
+                        }
                     }
                     operatorStack.Push(token);
                 }
@@ -245,8 +350,22 @@ namespace ConstantCalculator
             {
                 string op = operatorStack.Pop();
                 double arg2 = operandStack.Pop();
-                double arg1 = operandStack.Pop();
-                operandStack.Push(_operations[Array.IndexOf(_operators, op)](arg1, arg2));
+                if (_singleOperators.Any(a => a == op))
+                {
+                    operandStack.Push(_singleOperations[Array.IndexOf(_singleOperators, op)](arg2));
+                }
+                else
+                {
+                    if (operandStack.Count > 0 || op != "-")
+                    {
+                        double arg1 = operandStack.Pop();
+                        operandStack.Push(_operations[Array.IndexOf(_operators, op)](arg1, arg2));
+                    }
+                    else
+                    {
+                        operandStack.Push(-arg2);
+                    }
+                }
             }
             return operandStack.Pop();
         }
@@ -286,7 +405,9 @@ namespace ConstantCalculator
 
         private static List<string> getTokens(string expression)
         {
-            string operators = string.Join("", _operators); //"()^*/+-%";
+            List<string> allOperators = _operators.ToList();
+            allOperators.AddRange(_singleOperators);
+            string operators = string.Join("", allOperators.ToArray()); //"()^*/+-%";
             List<string> tokens = new List<string>();
             StringBuilder sb = new StringBuilder();
             string newExpress = expression.Replace(" ", string.Empty);
@@ -339,15 +460,16 @@ namespace ConstantCalculator
                     }
                     tokens.Add(c.ToString());
                 }
-                else if (IsFirstLetterOfConstant(c))
+                else if (!IsDigitsOnly(c.ToString(), string.Empty) && IsFirstLetterOfConstant(c, newExpress, i))
                 {
                     if ((sb.Length > 0))
                     {
                         tokens.Add(sb.ToString());
                         sb.Length = 0;
                     }
-                    tokens.Add(newExpress.Substring(i, ConstantLengthFrom(c)));
-                    i += ConstantLengthFrom(c) - 1;
+                    int constantsLength = ConstantLengthFrom(c, newExpress, i);
+                    tokens.Add(newExpress.Substring(i, constantsLength));
+                    i += constantsLength - 1;
                 }
                 else if (operators.IndexOf(c) < 0)
                 {
@@ -364,59 +486,71 @@ namespace ConstantCalculator
 
         private static double ChooseConst(string str)
         {
-            if (str.ToLower() == "e")
+            int index = mathConst.ToList().FindIndex(a => a.Contains(str.ToLower()));
+            if (index >= 0)
             {
-                return Math.E;
-            }
-            else if (str.ToLower() == "pi")
-            {
-                return Math.PI;
-            }
-            else if (str.ToLower() == "tau")
-            {
-                return 2 * Math.PI;
-            }
-            else if (str.ToLower() == "champ" || str.ToLower() == "champerowne")
-            {
-                return champ;
+                //if (str.ToLower() == "e")
+                //{
+                //    return Math.E;
+                //}
+                //else if (str.ToLower() == "pi")
+                //{
+                //    return Math.PI;
+                //}
+                //else if (str.ToLower() == "tau")
+                //{
+                //    return 2 * Math.PI;
+                //}
+                //else if (str.ToLower().Contains("champ"))
+                //{
+                //    return champ;
+                //}
+                //else if (str.ToLower().Contains("conway"))
+                //{
+                //    return conway;
+                //}
+                for (int i = index; i < mathConst.Length; i++)
+                {
+                    if (str.ToLower() == mathConst[i])
+                    {
+                        return actMathConst[i];
+                    }
+                }
             }
             throw new Exception("No mathematical constant matches: " + str);
         }
 
-        private static int ConstantLengthFrom(char c)
+        private static int ConstantLengthFrom(char c, string input, int index)
         {
             for (int i = 0; i < mathConst.Length; i++)
             {
-                if (c == mathConst[i][0])
+                if (c == mathConst[i][0] && input.Substring(index).ToLower().Contains(mathConst[i]))
                 {
                     return mathConst[i].Length;
+                }
+            }
+            for (int i = 0; i < preParenthesis.Length; i++)
+            {
+                if (c == preParenthesis[i][0] && input.Substring(index).ToLower().Contains(preParenthesis[i]))
+                {
+                    return preParenthesis[i].Length;
                 }
             }
             return 0;
         }
 
-        private static void MakeEverySecondOperator(List<string> tokens)
-        {
-            string operators = string.Join("", _operators); //"()^*/+-%";
-
-            for (int i = 0; i < tokens.Count; i++)
-            {
-                if (i > 0 /*&& i + 1 < tokens.Count*/)
-                {
-                    if ((i < 1 || operators.IndexOf(tokens[i - 1]) < 0) && (i + 1 >= tokens.Count || operators.IndexOf(tokens[i + 1]) < 0) && operators.IndexOf(tokens[i]) < 0)
-                    {
-                        tokens.Insert(i, "*");
-                    }
-                }
-            }
-            //return tokens;
-        }
-
-        private static bool IsFirstLetterOfConstant(char c)
+        private static bool IsFirstLetterOfConstant(char c, string input, int index)
         {
             for (int i = 0; i < mathConst.Length; i++)
             {
-                if (c == mathConst[i][0])
+                if (c == mathConst[i][0] && input.Substring(index).ToLower().Contains(mathConst[i]))
+                {
+                    return true;
+                }
+            }
+            for (int i = 0; i < preParenthesis.Length; i++)
+            {
+                if (c == preParenthesis[i][0] && input.Substring(index).ToLower().Contains(preParenthesis[i]))
                 {
                     return true;
                 }
@@ -424,18 +558,50 @@ namespace ConstantCalculator
             return false;
         }
 
+        private static void MakeEverySecondOperator(List<string> tokens)
+        {
+            List<string> allOperators = _operators.ToList();
+            allOperators.AddRange(_singleOperators);
+            //allOperators.Add("(");
+            //allOperators.Add(")");
+            string operators = string.Join("", allOperators.ToArray()); //"()^*/+-%";
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                if (i > 0)
+                {
+                    if ((i < 1 || operators.IndexOf(tokens[i - 1]) < 0) && (i + 1 >= tokens.Count && tokens[i - 1] != "(" && tokens[i] == "(" ? !preParenthesis.Any(a => a == tokens[i - 1]) : true || tokens[i - 1] != "(" && (tokens[i] == "(" ? !preParenthesis.Any(a => a == tokens[i - 1]) : true) && operators.IndexOf(tokens[i]) < 0 && (i + 1 < tokens.Count ? operators.IndexOf(tokens[i + 1]) < 0 && tokens[i + 1] != ")" : true)) && tokens[i - 1] != "(" && tokens[i] != "(" && tokens[i] != ")" && (i + 1 < tokens.Count ? tokens[i + 1] != ")" && operators.IndexOf(tokens[i + 1]) < 0 : true) && operators.IndexOf(tokens[i]) < 0)
+                    {
+                        //if (tokens[i - 1] != "(" && tokens[i] != "(" && operators.IndexOf(tokens[i]) < 0)
+                        //{
+                        //    if (i + 1 < tokens.Count)
+                        //    {
+                        //        if (tokens[i + 1] != ")" && operators.IndexOf(tokens[i + 1]) < 0)
+                        //            tokens.Insert(i, "*");
+                        //    }
+                        //    else
+                        //    {
+                        //        tokens.Insert(i, "*");
+                        //    }
+                        //}
+                        tokens.Insert(i, "*");
+                    }
+                }
+                //return tokens;
+            }
+        }
+
         private static void CommandsAndShit(string commandstring)
         {
             if (commandstring.StartsWith(prefix))
             {
                 commandstring = commandstring.Remove(0, 1);
-                int index = commands.FindIndex(a => commandstring.StartsWith(a.name));
+                int index = commands.FindIndex(a => commandstring.Trim().StartsWith(a.name));
                 if (index >= 0)
                 {
                     string sendString = null;
                     if (commands[index].name.Length < commandstring.Length)
                     {
-                        sendString = commandstring.Remove(0, commands[index].name.Length);
+                        sendString = commandstring.Trim().Remove(0, commands[index].name.Length);
                     }
                     else
                     {
@@ -445,13 +611,17 @@ namespace ConstantCalculator
                 }
                 for (int i = 0; i < commands.Count; i++)
                 {
-                    string toCheck = commandstring.Split()[0];
-                    if (commands[i].name.Length + 2 < commandstring.Length)
+                    string toCheck = commandstring.Trim().Split()[0];
+                    //if (toCheck == string.Empty || toCheck == null)
+                    //{
+                    //    toCheck = commandstring.Split()[1];
+                    //}
+                    if (commands[i].name.Length + 2 < toCheck.Length)
                     {
-                        toCheck = commandstring.Substring(0, commands[i].name.Length + 3);
+                        toCheck = commandstring.Trim().Substring(0, commands[i].name.Length + 3);
                     }
                     int howSimilar = Compute(toCheck.Replace(" ", ""), commands[i].name);
-                    if (howSimilar <= 2 && howSimilar >= 1)
+                    if (howSimilar <= 2 && howSimilar >= 1 && !toCheck.Contains(commands[i].name))
                     {
                         Console.WriteLine("Did you mean: " + commands[i].name);
                         //Console.WriteLine(commandstring + " is " + howSimilar + " similar to " + commands[i].name);
@@ -559,11 +729,18 @@ namespace ConstantCalculator
             {
                 try
                 {
-                    Console.WriteLine(Eval(parameters));
+                    if (parameters != null && parameters != string.Empty)
+                    {
+                        Console.WriteLine(Eval(parameters));
+                    }
+                    else
+                    {
+                        Console.WriteLine("Please input a math expression to be computed");
+                    }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.Message);
+                    Console.WriteLine(e.Message + " callstack: " + e.StackTrace);
                 }
             }
         }
