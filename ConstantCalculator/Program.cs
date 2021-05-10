@@ -246,7 +246,7 @@ namespace ConstantCalculator
 
         private static double[] actMathConst = { Math.E, Math.PI, Math.PI * 2, champ, champ, conway, phi, Rad2Deg, Deg2Rad };
 
-        private static string[] preParenthesis = { "sin", "cos", "tan", "abs", "sqr" };
+        private static string[] preParenthesis = { "sin^-1", "cos^-1", "tan^-1", "sin", "cos", "tan", "abs", "sqr", "log", "round", "ln" };
 
         private static Func<double, double, double>[] _operations = {
         (a1, a2) => a1 - a2,
@@ -259,11 +259,17 @@ namespace ConstantCalculator
     };
 
         private static Func<double, double>[] preParenthesisOperation = {
+        (a1) => Math.Asin(a1)*Rad2Deg,
+        (a1) => Math.Acos(a1)*Rad2Deg,
+        (a1) => Math.Atan(a1)*Rad2Deg,
         (a1) => Math.Sin(a1*Deg2Rad),
         (a1) => Math.Cos(a1*Deg2Rad),
         (a1) => Math.Tan(a1*Deg2Rad),
         (a1) => Math.Abs(a1),
         (a1) => Math.Sqrt(a1),
+        (a1) => Math.Log10(a1),
+        (a1) => Math.Round(a1, MidpointRounding.ToPositiveInfinity),
+        (a1) => Math.Log(a1),
         };
 
         private static Func<double, double>[] _singleOperations = {
@@ -288,7 +294,18 @@ namespace ConstantCalculator
                 {
                     if (tokens[tokenIndex + 1] != "(")
                     {
-                        throw new ArgumentException("A pre parenthesis function has to be followed by a parenthesis");
+                        if (tokens[tokenIndex + 1] == "*")
+                        {
+                            tokens.RemoveAt(tokenIndex + 1);
+                            if (tokens[tokenIndex + 1] != "(")
+                            {
+                                throw new ArgumentException("A pre parenthesis operation has to be followed by a parenthesis.");
+                            }
+                        }
+                        else
+                        {
+                            throw new ArgumentException("A pre parenthesis operation has to be followed by a parenthesis.");
+                        }
                     }
                     int index = preParenthesis.ToList().FindIndex(a => a == token);
                     tokenIndex++;
@@ -434,6 +451,7 @@ namespace ConstantCalculator
                             sb.Length = 0;
                         }
                         tokens.Add("*");
+                        tokens.Add(c.ToString());
                     }
                     else
                     {
