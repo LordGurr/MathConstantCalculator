@@ -225,11 +225,7 @@ namespace ConstantCalculator
                     containsNumber = true;
                 }
             }
-            if (!containsNumber)
-            {
-                return false;
-            }
-            return true;
+            return containsNumber;
         }
 
         private const double champ = 0.123456789101112;
@@ -261,14 +257,14 @@ namespace ConstantCalculator
         private static Func<double, double>[] preParenthesisOperation = {
         (a1) => Math.Asin(a1)*Rad2Deg,
         (a1) => Math.Acos(a1)*Rad2Deg,
-        (a1) => Math.Atan(a1)*Rad2Deg,
+        (a1) => a1 == 1 ? 45 : Math.Atan(a1)*Rad2Deg,
         (a1) => Math.Sin(a1*Deg2Rad),
         (a1) => Math.Cos(a1*Deg2Rad),
-        (a1) => Math.Tan(a1*Deg2Rad),
+        (a1) => a1 == 45 ? 1 :Math.Tan(a1*Deg2Rad),
         (a1) => Math.Abs(a1),
         (a1) => Math.Sqrt(a1),
         (a1) => Math.Log10(a1),
-        (a1) => Math.Round(a1, MidpointRounding.ToPositiveInfinity),
+        (a1) => Math.Round(a1, MidpointRounding.ToZero),
         (a1) => Math.Log(a1),
         };
 
@@ -365,23 +361,30 @@ namespace ConstantCalculator
 
             while (operatorStack.Count > 0)
             {
-                string op = operatorStack.Pop();
-                double arg2 = operandStack.Pop();
-                if (_singleOperators.Any(a => a == op))
+                try
                 {
-                    operandStack.Push(_singleOperations[Array.IndexOf(_singleOperators, op)](arg2));
-                }
-                else
-                {
-                    if (operandStack.Count > 0 || op != "-")
+                    string op = operatorStack.Pop();
+                    double arg2 = operandStack.Pop();
+                    if (_singleOperators.Any(a => a == op))
                     {
-                        double arg1 = operandStack.Pop();
-                        operandStack.Push(_operations[Array.IndexOf(_operators, op)](arg1, arg2));
+                        operandStack.Push(_singleOperations[Array.IndexOf(_singleOperators, op)](arg2));
                     }
                     else
                     {
-                        operandStack.Push(-arg2);
+                        if (operandStack.Count > 0 || op != "-")
+                        {
+                            double arg1 = operandStack.Pop();
+                            operandStack.Push(_operations[Array.IndexOf(_operators, op)](arg1, arg2));
+                        }
+                        else
+                        {
+                            operandStack.Push(-arg2);
+                        }
                     }
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new InvalidOperationException("Too many operators in string");
                 }
             }
             return operandStack.Pop();
